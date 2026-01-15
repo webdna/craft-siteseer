@@ -1,0 +1,48 @@
+<h2 class="first">{{ 'Errors'|t('siteseer') }}</h2>
+<div id="error-list-vue-admin-table"></div>
+
+<form class="utility" method="post" accept-charset="UTF-8" style="margin-top: 2rem;">
+
+    {{ actionInput('siteseer/default/create-jobs') }}
+    {{ csrfInput() }}
+    {{ redirectInput('utilities/siteseer') }}
+
+    {% if siteOptions|length %}
+        <h2 class="">{{ 'Sites'|t('siteseer') }} </h2>
+        {{ raw(siteOptions)|attr({class: 'checkbox-select first'}) }}
+    {% endif %}
+
+    {% if sectionOptions|length %}
+    <h2 class="">{{ 'Entry Sections'|t('siteseer') }} </h2>
+    {{ raw(sectionOptions)|attr({class: 'checkbox-select'}) }}
+    {% endif %}
+
+    {% if groupOptions|length %}
+    <h2 class="">{{ 'Category Groups'|t('siteseer') }} </h2>
+    {{ raw(groupOptions) }}
+    {% endif %}
+
+    {% if typeOptions|length %}
+        <h2 class="">{{ 'Product Types'|t('siteseer') }} </h2>
+        {{ raw(typeOptions) }}
+    {% endif %}
+
+    <h2 class="">{{ 'Manual URLs'|t('siteseer') }} </h2>
+    {{ raw(manualUrls) }}
+
+    <h2 class="">{{ "Static URLs from config"|t('siteseer') }} </h2>
+    <div style="margin-bottom: 0.5rem">
+        {{ raw(includeConfigCheckBox ) }}
+    </div>
+    {{ raw(configUrls) }}
+
+    <h2 class="">{{ 'Take Snaphots'|t }}</h2>
+    <div style="margin-bottom: 0.5rem">
+        {{ raw(takeSnapshotCheckBox ) }}
+    </div>
+
+    <div class="buttons">
+        <button type="submit" class="btn submit">{{ 'Run a scan'|t('app') }}</button>
+        <div class="utility-status"></div>
+    </div>
+</form>
