@@ -95,7 +95,7 @@ class DefaultController extends Controller
         foreach ($errors['errors'] as $error) {
             $element = Craft::$app->getElements()->getElementById($error->elementId,null, $error->siteId);
             $rows[] = [
-                'title' => $error->id,
+                'id' => $error->id,
                 'link' => Html::tag('a', $error->url, [
                     'href' => $error->url,
                     'target' => '_blank'
@@ -116,5 +116,32 @@ class DefaultController extends Controller
             'pagination' => AdminTable::paginationLinks($page, $errors['total'], $limit),
             'data' => $rows
         ]);
+    }
+
+    public function actionDeleteSiteseerError(): Response
+    {
+        $this->requirePostRequest();
+        $ids = $this->request->getParam('ids',[]);
+        $singleId = $this->request->getParam('id',null);
+        $ids[] = $singleId;
+
+        if (!empty($ids)) {
+            if (Siteseer::getInstance()->errorService->deleteErrorByIds($ids)) {
+                return $this->asSuccess('Errors deleted');
+            } else {
+                return $this->asFailure('There was an error deleting errors. Ironic, right?');
+            }
+        } 
+
+        return $this->asFailure('No error ids provided.');       
+    }
+
+    public function actionDeleteAllSiteseerErrors(): Response
+    {
+        if (Siteseer::getInstance()->errorService->deleteAllErrors()) {
+            return $this->asSuccess('Errors deleted');
+        } else {
+            return $this->asFailure('There was an error deleting errors. Ironic, right?');
+        }
     }
 }

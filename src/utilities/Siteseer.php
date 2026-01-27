@@ -10,8 +10,6 @@ use craft\base\Utility;
 use craft\commerce\Plugin as Commerce;
 use craft\web\assets\admintable\AdminTableAsset;
 
-use function PHPSTORM_META\map;
-
 /**
  * Hit It utility
  */
@@ -30,6 +28,11 @@ class Siteseer extends Utility
     public static function icon(): ?string
     {
         return 'wrench';
+    }
+
+    public static function badgeCount(): int
+    {
+        return Plugin::getInstance()->errorService->getErrorCount();
     }
 
     public static function contentHtml(): string
@@ -51,7 +54,7 @@ class Siteseer extends Utility
         $view->registerAssetBundle(AdminTableAsset::class);
         $view->registerJs(<<<JS
             var columns = [
-                { name: '__slot:title', title: 'ID' },
+                { name: 'id', title: 'ID' },
                 { name: 'link', title: 'URL' },
                 { name: 'code', title: 'Code' },
                 { name: 'site', title: 'Site' },
@@ -66,6 +69,12 @@ class Siteseer extends Utility
                 perPage: 10,
                 tableDataEndpoint: Craft.getActionUrl('siteseer/default/get-siteseer-error-table'),
                 search: false,
+                checkboxes: true,
+                deleteAction: Craft.getActionUrl('siteseer/default/delete-siteseer-error'),
+                allowMultipleDeletions: true,
+                deleteConfirmationMessage: `Are you sure you want to delete this error?`,
+                deleteSuccessMessage: 'Error deleted',
+                deleteFailMessage: 'Couldn\'t delete error'
             });
         JS);
         return $view->renderTemplate(
@@ -78,7 +87,8 @@ class Siteseer extends Utility
                 'manualUrls' => SiteseerHelper::getManualUrlTable(),
                 'configUrls' => SiteseerHelper::getConfigManualUrlTable(),
                 'includeConfigCheckBox' => SiteseerHelper::getConfigCheckbox(),
-                'takeSnapshotCheckBox' => SiteseerHelper::getSnapshotCheckbox()
+                'takeSnapshotCheckBox' => SiteseerHelper::getSnapshotCheckbox(),
+                'hasErrors' => Plugin::getInstance()->errorService->getErrorCount()
             ]
         );
     }

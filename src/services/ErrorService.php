@@ -53,6 +53,10 @@ class ErrorService extends Component
             'errors' => $errors
         ];
     }   
+
+    public function getErrorCount() {
+        return ErrorRecord::find()->count();
+    }
     
     public function saveErrorRecord(Destination $destination, $code): void
     {
@@ -84,7 +88,7 @@ class ErrorService extends Component
     public function deleteError(ErrorModel $error): void
     {
         try {
-            $record = ErrorRecord::findOne($error->id);
+            $record = ErrorRecord::find()->where(['id' => $error->id])->one();
             if ($record) {
                 $record->delete();
             }
@@ -94,6 +98,40 @@ class ErrorService extends Component
         }
 
         return;
+    }
+
+    public function deleteErrorByIds(array $ids): bool
+    {
+        try {
+            $records = ErrorRecord::find()->where(['id' => $ids])->all();
+            if (!empty($records)) {
+                foreach ($records as $record) {
+                    $record->delete();
+                }
+            }
+        } catch (Throwable $e) {
+            Siteseer::error($e->getMessage());
+            Craft::$app->getErrorHandler()->logException($e);
+            return false;
+        }
+        return true;
+    }
+
+    public function deleteAllErrors(): bool
+    {
+        try {
+            $records = ErrorRecord::find()->all();
+            if (!empty($records)) {
+                foreach ($records as $record) {
+                    $record->delete();
+                }
+            }
+        } catch (Throwable $e) {
+            Siteseer::error($e->getMessage());
+            Craft::$app->getErrorHandler()->logException($e);
+            return false;
+        }
+        return true;
     }
 
     private function _createErrorQuery(array $config = []): array

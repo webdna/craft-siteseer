@@ -1,3 +1,13 @@
+{% if hasErrors %}
+    <div class="buttons first">
+        <form method="post">
+            {{ csrfInput() }}
+            {{ actionInput('siteseer/default/delete-all-siteseer-errors') }}
+            {{ redirectInput('utilities/siteseer') }}
+            <button type="submit" id="clearallsiteseererrors" class="btn submit">{{ "Clear all"|t('siteseer') }}</button>
+        </form>
+    </div>
+{% endif %}
 <h2 class="first">{{ 'Errors'|t('siteseer') }}</h2>
 <div id="error-list-vue-admin-table"></div>
 
