@@ -68,22 +68,22 @@ class SiteseerHelper
         );
     }
 
-    public static function getManualUrlTable(): string
+    public static function getManualUriTable(): string
     {
         $view = Craft::$app->getView();
         return $view->renderTemplate(
             '_includes/forms/editableTable.twig',
             [
                 'name' => 'manual',
-                'id' => 'manual-urls',
+                'id' => 'manual-uris',
                 'staticRows' => false,
                 'allowAdd' => true,
                 'allowDelete' => true,
                 'allowReorder' => false,
-                'addRowLabel' => Craft::t('siteseer', 'Add static URLs'),
+                'addRowLabel' => Craft::t('siteseer', 'Add static URIs'),
                 'cols' => [
                     'url' => [
-                        'heading' => Craft::t('siteseer', 'URL'),
+                        'heading' => Craft::t('siteseer', 'URI'),
                         'type' => 'url'
                     ]
                 ],
@@ -92,7 +92,7 @@ class SiteseerHelper
         );
     }
 
-    public static function getConfigManualUrlTable(): string
+    public static function getConfigManualUriTable(): string
     {
         $view = Craft::$app->getView();
         $currentSite = Craft::$app->getSites()->getCurrentSite();
@@ -100,21 +100,21 @@ class SiteseerHelper
             '_includes/forms/editableTable.twig',
             [
                 'name' => 'config',
-                'id' => 'config-urls',
+                'id' => 'config-uris',
                 'staticRows' => true,
                 'allowAdd' => false,
                 'allowDelete' => false,
                 'allowReorder' => false,
                 'static' => true,
                 'cols' => [
-                    'url' => [
-                        'heading' => Craft::t('siteseer', 'URL'),
+                    'uri' => [
+                        'heading' => Craft::t('siteseer', 'URI'),
                         'type' => 'url'
                     ]
                 ],
-                'rows' => collect(Siteseer::getInstance()->getSettings()->manualUrls)->map( function ($url) {
+                'rows' => collect(Siteseer::getInstance()->getSettings()->manualUris)->map( function ($uri) {
                     return [
-                        'url' => UrlHelper::siteUrl($url)
+                        'uri' => UrlHelper::siteUrl($uri)
                     ];
                 })->values()->all()
             ]

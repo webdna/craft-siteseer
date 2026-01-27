@@ -84,8 +84,8 @@ class Siteseer extends Utility
                 'sectionOptions' => SiteseerHelper::getCheckboxes($sections),
                 'groupOptions' => SiteseerHelper::getCheckboxes($groups),
                 'typeOptions' => $isCommerce ? SiteseerHelper::getCheckboxes($productTypes) : '',
-                'manualUrls' => SiteseerHelper::getManualUrlTable(),
-                'configUrls' => SiteseerHelper::getConfigManualUrlTable(),
+                'manualUris' => SiteseerHelper::getManualUriTable(),
+                'configUris' => SiteseerHelper::getConfigManualUriTable(),
                 'includeConfigCheckBox' => SiteseerHelper::getConfigCheckbox(),
                 'takeSnapshotCheckBox' => SiteseerHelper::getSnapshotCheckbox(),
                 'hasErrors' => Plugin::getInstance()->errorService->getErrorCount()

@@ -37,7 +37,7 @@ class ItineraryService extends Component
             $entryUrls = [];
             $categoryUrls = [];
             $productUrls = [];
-            $manualUrls = [];
+            $manualUris = [];
             if (is_array($sections)) {
                 $entryUrls = $this->entryUrls($sections, $siteId, $options);
             }
@@ -48,7 +48,7 @@ class ItineraryService extends Component
                 $productUrls = $this->productUrls($types, $siteId, $options);
             }
             if (is_array($manualUris)) {
-                $manualUrls = $this->manualUris($manualUris, $siteId, $options);
+                $manualUrls = $this->manualUrls($manualUris, $siteId, $options);
             }
             
             $destinations = ArrayHelper::merge($entryUrls,$categoryUrls,$productUrls,$manualUrls);
@@ -137,7 +137,7 @@ class ItineraryService extends Component
         return $destinations;
     }
 
-    public function manualUris(array $manualUris=[], int|null $siteId=null, array $options = []): array
+    public function manualUrls(array $manualUris=[], int|null $siteId=null, array $options = []): array
     {
         $settings = Siteseer::getInstance()->getSettings();
         $configUris = [];
