@@ -62,6 +62,10 @@ class DefaultController extends Controller
             ]
         );
 
+        if ($takeSnapshots) {
+            Siteseer::getInstance()->visitService->deleteAllSnapshots();
+        }
+
         // each top level is a site
         if (count($destinations)) {
             foreach ($destinations as $destinationList) {

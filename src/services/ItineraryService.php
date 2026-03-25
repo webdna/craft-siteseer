@@ -156,7 +156,7 @@ class ItineraryService extends Component
                 'elementId' => null,
                 'elementType' => null,
                 'siteId' => $siteId,
-                'url' => UrlHelper::siteUrl($uri, null, null, $siteId),
+                'url' => UrlHelper::siteUrl($uri, null, $settings->useHttps ? 'https' : null, $siteId),
                 'editUrl' => null
             ]);
         }

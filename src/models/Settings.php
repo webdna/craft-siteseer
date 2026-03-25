@@ -11,4 +11,5 @@ use craft\base\Model;
 class Settings extends Model
 {
     public array $manualUris = [];
+    public bool $useHttps = true;
 }

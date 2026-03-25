@@ -8,6 +8,7 @@ use craft\helpers\Console;
 use craft\helpers\FileHelper;
 use craft\helpers\Queue;
 use craft\helpers\UrlHelper;
+use craft\console\Application as ConsoleApplication;
 use GuzzleHttp\Client;
 use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request;
@@ -33,8 +34,9 @@ class VisitService extends Component
     }
 
     // uk oh, we've written this for multi visits, but the queue is currently doing single visits
-    public function visit(DestinationList $destinationList, bool $takeSnapshots): void
+    public function visit(DestinationList $destinationList, bool $takeSnapshots, bool $consoleOutput = false): void
     {
+        $settings = Siteseer::getInstance()->getSettings();
         $site = Craft::$app->getSites()->getSiteById($destinationList->siteId);
         $destinations = $destinationList->destinations;
 
@@ -42,7 +44,7 @@ class VisitService extends Component
             return;
         }
         $client = new Client([
-            'base_uri' => UrlHelper::siteUrl('/',[],null,$site->id),
+            'base_uri' => UrlHelper::siteUrl('/',[], $settings->useHttps ? 'https' : null,$site->id),
         ]);
         
         $total = count($destinations);
@@ -56,23 +58,25 @@ class VisitService extends Component
 
         $pool = new Pool($client, $request($destinations), [
             'concurrency' => App::env('CONCURRENT_REQUESTS', 3),
-            'fulfilled' => function (Response $response, $index) use ($destinations, $total, &$count, $takeSnapshots) {
+            'fulfilled' => function (Response $response, $index) use ($destinations, $total, &$count, $takeSnapshots, $consoleOutput) {
                 $code = $response->getStatusCode();
                 $url = $destinations[$index]->url;
                 $output = "%y[$count/$total] $url : ".($code == 200 ? "%g" : "%r")." $code%n";
-                // Console::output(Console::renderColoredString($output));
+                if ($consoleOutput && Craft::$app instanceof ConsoleApplication) {
+                    Console::output(Console::renderColoredString($output));
+                }
                 if ($code == 200) {
                     Craft::info($output,'siteseer');
                     // should we take a snapshot here? 
                     if ($takeSnapshots) {
-                        $this->_saveSnapshot($response, $destinations[$index]->url);                    
+                        $this->_saveSnapshot($response, $destinations[$index]->url, $consoleOutput);                    
                     }
                 } else {
                     Siteseer::getInstance()->errorService->saveErrorRecord($destinations[$index], $code);
                 }
                 $count++;
             },
-            'rejected' => function ($exception, $index) use ($destinations, $total, &$count, $takeSnapshots) {
+            'rejected' => function ($exception, $index) use ($destinations, $total, &$count, $takeSnapshots, $consoleOutput) {
                 $code = 'UNKNOWN';
                 $url = $destinations[$index]->url;
                 $output = "%y[$count/$total] $url : ".($code == 200 ? "%g" : "%r")." $code%n";
@@ -85,6 +89,9 @@ class VisitService extends Component
                         $code = 500;
                     }
                     
+                    if ($consoleOutput && Craft::$app instanceof ConsoleApplication) {
+                        Console::output(Console::renderColoredString($output));
+                    }
                     Siteseer::error($output);
                 } catch (\Throwable $th) {
                     //throw $th;
@@ -100,7 +107,7 @@ class VisitService extends Component
 
     }
 
-    private function _saveSnapshot(Response $response, string $path): void 
+    private function _saveSnapshot(Response $response, string $path, bool $consoleOutput = false): void 
     {
         $pageContent = (string)$response->getBody();
         $storagePath = Craft::$app->getPath()->getStoragePath();
@@ -140,6 +147,32 @@ class VisitService extends Component
         try {
             FileHelper::writeToFile($fullPath, $pageContent);
             Siteseer::log('did it work?');
+            if ($consoleOutput && Craft::$app instanceof ConsoleApplication) {
+                Console::output(Console::renderColoredString('%gSNAPPED'));
+            }
+        } catch (\Exception $exception) {
+            Siteseer::error($exception->getMessage());
+        }
+    }
+
+    public function deleteAllSnapshots(bool $consoleOutput = false): void
+    {
+        $storagePath = Craft::$app->getPath()->getStoragePath();
+        $cachePath = $storagePath . '/' . 'site-seer';
+
+        if (!is_dir($cachePath)) {
+            return;
+        }
+
+        if ($consoleOutput && Craft::$app instanceof ConsoleApplication) {
+            Console::output('Deleting Snaps');
+        }
+
+        try {
+            FileHelper::removeDirectory($cachePath);
+            if ($consoleOutput && Craft::$app instanceof ConsoleApplication) {
+                Console::output('Snaps Deleted');
+            }
         } catch (\Exception $exception) {
             Siteseer::error($exception->getMessage());
         }
