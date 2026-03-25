@@ -141,7 +141,7 @@ class VisitService extends Component
 
         // Inject cached banner and timestamp
             $timestamp = date('Y-m-d H:i:s');
-            $banner = '<div style="position: fixed; width: 100%; top: 0;background:#ffeeba;color:#856404;padding:10px;text-align:center;font-family:sans-serif;font-size:14px;border-bottom:1px solid #ffeeba;">This is a <strong>cached page</strong> generated at ' . $timestamp . '</div>';
+            $banner = '<div style="position: fixed; width: 100%; top: 0;background:#ffeeba;color:#856404;padding:10px;text-align:center;font-family:sans-serif;font-size:14px;border-bottom:1px solid #ffeeba;z-index: 9999;">This is a <strong>cached page</strong> generated at ' . $timestamp . '</div>';
             $pageContent = preg_replace('/<body([^>]*)>/', '<body$1>' . $banner, $pageContent, 1);
 
         try {
