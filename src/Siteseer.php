@@ -6,11 +6,13 @@ use Craft;
 use Monolog\Formatter\LineFormatter;
 use craft\base\Model;
 use craft\base\Plugin;
+use craft\console\Application as ConsoleApplication;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterUserPermissionsEvent;
 use craft\log\MonologTarget;
 use craft\services\UserPermissions;
 use craft\services\Utilities;
+use webdna\craftsiteseer\console\controllers\DefaultController as VisitController;
 use webdna\craftsiteseer\models\Settings;
 use webdna\craftsiteseer\services\ErrorService;
 use webdna\craftsiteseer\services\ItineraryService;
@@ -58,7 +60,12 @@ class Siteseer extends Plugin
             'visitService' => VisitService::class,
             'errorService' => ErrorService::class
        ]);
-        
+
+        // ./craft siteseer/visit, short for siteseer/default/visit
+        if (Craft::$app instanceof ConsoleApplication) {
+            $this->controllerMap['visit'] = VisitController::class;
+        }
+
         // Any code that creates an element query or loads Twig should be deferred until
         // after Craft is fully initialized, to avoid conflicts with other plugins/modules
         Craft::$app->onInit(function() {

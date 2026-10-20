@@ -34,7 +34,29 @@ The plugin is almost exclusively used from its utilities menu. The siteseer util
 
 Clicking the 'Run a scan' button will then convert your itinerary into a series of queue jobs, which will take place in the background. Once finished you can return to the utilities page to see a summary of any errors found during the trip. From the table you can visit the problem url, find out more about its error code, visit its edit page in the CP (if available) and delete the record once you have addressed the problem.
 
-This can also be done from the command line using the `./craft siteseer/default/visit` command. The command runs the visit directly and does not make use of batched queue jobs so could be computationally demanding for very large sites.
+### From the command line
+Everything the utility can visit, `./craft siteseer/visit` can visit too (`siteseer/default/visit` is the same command), so a scan can run after a deploy or on a schedule.
+
+```bash
+# every section, category group and product type, on every site, visited now
+./craft siteseer/visit
+
+# two sections, queued as the utility's "Run a scan" button does
+./craft siteseer/visit --sections=news,blog --groups= --types= --queue
+
+# a few static pages plus the config file's URIs, on one site
+./craft siteseer/visit --sites=default --sections= --groups= --types= --manual=contact,about --include-config
+```
+
+| Option | |
+|---|---|
+| `--sites`, `--sections`, `--groups`, `--types` | Comma-separated handles or IDs, or `*`. Left out: all of them. Given empty (`--sections=`): none. |
+| `--manual` | Comma-separated URIs, visited on every chosen site. |
+| `--include-config` | Also visit the `manualUris` from `config/siteseer.php`. |
+| `--snapshot` | Delete the existing snapshots and take new ones. |
+| `--queue` | Push batched queue jobs (one per site) and return, instead of visiting now. |
+
+Without `--queue` the pages are visited in the command's own process, one line per URL, which can take a while on a large site. The run ends with a summary and exits `1` when any page did not answer 200, so a deploy script or scheduler can act on it. An unknown handle or ID exits `64` before anything is visited. Either way, every failure is saved to the utility's error table.
 
 ### Experimental Dev features
 The plugin also offers the ability to take html snapshots of the pages that are visited in dev mode only. This hopes to address for developers the difficulty in testing functionality of sites that use static caching on their production hosting. This is not a production worthy static caching solution. 

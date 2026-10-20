@@ -16,6 +16,7 @@ use webdna\craftsiteseer\models\Destination;
 use webdna\craftsiteseer\models\DestinationList;
 use webdna\craftsiteseer\Siteseer;
 use yii\base\Component;
+use yii\base\InvalidArgumentException;
 
 /**
  * Itinerary service
@@ -37,7 +38,7 @@ class ItineraryService extends Component
             $entryUrls = [];
             $categoryUrls = [];
             $productUrls = [];
-            $manualUris = [];
+            $manualUrls = [];
             if (is_array($sections)) {
                 $entryUrls = $this->entryUrls($sections, $siteId, $options);
             }
@@ -83,6 +84,53 @@ class ItineraryService extends Component
             return Commerce::getInstance()->getProductTypes()->getAllProductTypeIds();
         }
         return [];
+    }
+
+    /**
+     * Turns a list of handles and/or ids (or "*") into the ids of one kind of thing.
+     *
+     * @param string $kind 'sites', 'sections', 'groups' or 'types'
+     * @param array $values handles, numeric ids, or '*' for all
+     * @throws InvalidArgumentException naming the first value that matches nothing
+     */
+    public function resolveIds(string $kind, array $values): array
+    {
+        $values = array_values(array_filter(
+            array_map(static fn($value) => trim((string)$value), $values),
+            static fn($value) => $value !== ''
+        ));
+
+        if (in_array('*', $values, true)) {
+            return match ($kind) {
+                'sites' => $this->allSiteIds(),
+                'sections' => $this->allSectionIds(),
+                'groups' => $this->allGroupIds(),
+                'types' => $this->allTypeIds(),
+            };
+        }
+
+        if ($kind === 'types' && !empty($values) && !Craft::$app->getPlugins()->isPluginEnabled('commerce')) {
+            throw new InvalidArgumentException('Product types need Commerce, which is not installed.');
+        }
+
+        $ids = [];
+        foreach ($values as $value) {
+            $isId = ctype_digit($value);
+            $model = match ($kind) {
+                'sites' => $isId ? Craft::$app->getSites()->getSiteById((int)$value) : Craft::$app->getSites()->getSiteByHandle($value),
+                'sections' => $isId ? Craft::$app->getEntries()->getSectionById((int)$value) : Craft::$app->getEntries()->getSectionByHandle($value),
+                'groups' => $isId ? Craft::$app->getCategories()->getGroupById((int)$value) : Craft::$app->getCategories()->getGroupByHandle($value),
+                'types' => $isId ? Commerce::getInstance()->getProductTypes()->getProductTypeById((int)$value) : Commerce::getInstance()->getProductTypes()->getProductTypeByHandle($value),
+            };
+
+            if (!$model) {
+                $label = ['sites' => 'site', 'sections' => 'section', 'groups' => 'category group', 'types' => 'product type'][$kind];
+                throw new InvalidArgumentException("Unknown $label: $value");
+            }
+            $ids[] = (int)$model->id;
+        }
+
+        return array_values(array_unique($ids));
     }
 
     public function allSiteIds(): array
@@ -152,6 +200,14 @@ class ItineraryService extends Component
 
         $destinations = [];
         foreach ($uris as $uri) {
+            // the utility's editable table posts rows, the console posts strings
+            if (is_array($uri)) {
+                $uri = $uri['url'] ?? '';
+            }
+            $uri = trim((string)$uri);
+            if ($uri === '') {
+                continue;
+            }
             $destinations[] = new Destination([
                 'elementId' => null,
                 'elementType' => null,

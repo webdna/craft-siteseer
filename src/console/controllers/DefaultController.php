@@ -3,145 +3,121 @@
 namespace webdna\craftsiteseer\console\controllers;
 
 use craft\console\Controller;
+use craft\helpers\Console;
 use webdna\craftsiteseer\Siteseer;
+use yii\base\InvalidArgumentException;
 use yii\console\ExitCode;
 
 /**
- * default controller
+ * Runs the visits the Siteseer utility runs, from the command line.
  */
 class DefaultController extends Controller
 {
     public $defaultAction = 'visit';
-    
-    /** @var string|array Comma-separated list of section IDs, or "*" for all. Defaults to "*".
-     * Example: --sections="1,2,3" or --sections="*"
-     */
-    public string|array $sections = [];
 
-    /** @var string|array Comma-separated list of category group IDs, or "*" for all. Defaults to "*".
-     * Example: --groups="1,2,3" or --groups="*"
-     */
-    public string|array $groups = [];
+    /** @var array Comma-separated site handles or IDs, or "*". Left out: all sites. */
+    public array $sites = [];
 
-    /** @var string|array Comma-separated list of entry type IDs, or "*" for all. Defaults to "*".
-     * Example: --types="1,2,3" or --types="*"
-     */
-    public string|array $types = [];
+    /** @var array Comma-separated entry section handles or IDs, or "*". Left out: all sections. Empty: none. */
+    public array $sections = [];
 
-    /** @var string|array Comma-separated list of manual URIs. Defaults to empty.
-     * Example: --manual="contact,about,insights"
-     */
-    public string|array $manual = [];
+    /** @var array Comma-separated category group handles or IDs, or "*". Left out: all groups. Empty: none. */
+    public array $groups = [];
 
-    /** @var string|array Comma-separated list of site IDs, or "*" for all. Defaults to "*".
-     * Example: --sites="1,2" or --sites="*"
-     */
-    public string|array $sites = [];
+    /** @var array Comma-separated Commerce product type handles or IDs, or "*". Left out: all types. Empty: none. */
+    public array $types = [];
 
-    /** @var bool Include manual URIs from plugin settings. Defaults to false.
-     * Example: --includeconfig=1
-     */
+    /** @var array Comma-separated URIs to visit on every chosen site, e.g. --manual="contact,about" */
+    public array $manual = [];
+
+    /** @var bool Also visit the manualUris from config/siteseer.php. */
+    public bool $includeConfig = false;
+
+    /** @var bool The older spelling of --include-config. */
     public bool $includeconfig = false;
 
-    /** @var bool Take snapshots and clear existing cached snapshots first. Defaults to false.
-     * Example: --snapshot=1
-     */
+    /** @var bool Delete the existing snapshots and take new ones. */
     public bool $snapshot = false;
+
+    /** @var bool Push the visits onto the queue, as the utility's "Run a scan" does, instead of visiting now. */
+    public bool $queue = false;
 
     public function options($actionID): array
     {
         $options = parent::options($actionID);
-        switch ($actionID) {
-            case 'index':
-                // $options[] = '...';
-                break;
-            case 'visit':
-                $options[] = 'sections';
-                $options[] = 'groups';
-                $options[] = 'types';
-                $options[] = 'manual';
-                $options[] = 'sites';
-                $options[] = 'includeconfig';
-                $options[] = 'snapshot';
-                break;
+        if ($actionID === 'visit') {
+            array_push($options, 'sites', 'sections', 'groups', 'types', 'manual', 'includeConfig', 'includeconfig', 'snapshot', 'queue');
         }
         return $options;
     }
 
     /**
-     * siteseer/default/visit
+     * Visits every URL in an itinerary, now or on the queue.
      *
      * Examples:
-     *  ./craft siteseer/default/visit --sections="\*" --groups="\*" --types="\*" --sites="\*" --includeconfig=1 --snapshot=1
-     *  ./craft siteseer/default/visit --sections="1,2" --types="5" --sites="1" --manual="contact,about"
+     *  ./craft siteseer/visit
+     *  ./craft siteseer/visit --sections=news,blog --queue
+     *  ./craft siteseer/visit --sites=default --sections= --groups= --types= --manual=contact,about --include-config
      */
     public function actionVisit(): int
     {
-        $itineraryService = Siteseer::getInstance()->itineraryService;
+        $plugin = Siteseer::getInstance();
+        $passed = $this->getPassedOptions();
 
-        $sections = $this->normalizeList($this->sections, true);
-        $groups = $this->normalizeList($this->groups, true);
-        $types = $this->normalizeList($this->types, true);
-        $manual = $this->normalizeList($this->manual);
-        $siteIds = $this->normalizeList($this->sites, true);
-
-        $includeConfig = (bool)$this->includeconfig;
-        $takeSnapshots = (bool)$this->snapshot;
-
-        if ($sections === '*') {
-            $sections = $itineraryService->allSectionIds();
-        }
-        if ($groups === '*') {
-            $groups = $itineraryService->allGroupIds();
-        }
-        if ($types === '*') {
-            $types = $itineraryService->allTypeIds();
-        }
-        if ($siteIds === '*') {
-            $siteIds = $itineraryService->allSiteIds();
+        try {
+            $selection = [];
+            foreach (['sites', 'sections', 'groups', 'types'] as $kind) {
+                // left out means all of them, as the utility ticks every box
+                $selection[$kind] = $plugin->itineraryService->resolveIds(
+                    $kind,
+                    in_array($kind, $passed, true) ? $this->$kind : ['*']
+                );
+            }
+        } catch (InvalidArgumentException $e) {
+            $this->stderr($e->getMessage() . PHP_EOL, Console::FG_RED);
+            return ExitCode::USAGE;
         }
 
-        $destinations = Siteseer::getInstance()->itineraryService->allTheUrls(
-            $sections,
-            $groups,
-            $types,
+        $manual = array_values(array_filter(array_map('trim', $this->manual), static fn($uri) => $uri !== ''));
+
+        $destinationLists = $plugin->itineraryService->allTheUrls(
+            $selection['sections'],
+            $selection['groups'],
+            $selection['types'],
             $manual,
-            $siteIds,
-            [
-                'includeConfig' => $includeConfig
-            ]
+            $selection['sites'],
+            ['includeConfig' => $this->includeConfig || $this->includeconfig]
         );
 
-        if ($takeSnapshots) {
-            Siteseer::getInstance()->visitService->deleteAllSnapshots(true);
+        $destinationLists = array_filter($destinationLists, static fn($list) => count($list->destinations) > 0);
+        $urls = array_sum(array_map(static fn($list) => count($list->destinations), $destinationLists));
+        $sites = count($destinationLists);
+        $tally = $urls . ($urls === 1 ? ' URL' : ' URLs') . " on $sites " . ($sites === 1 ? 'site' : 'sites');
+
+        if ($urls === 0) {
+            $this->stdout('Nothing to visit.' . PHP_EOL);
+            return ExitCode::OK;
         }
 
-        if (count($destinations)) {
-            foreach ($destinations as $destinationList) {
-                Siteseer::getInstance()->visitService->visit($destinationList, $takeSnapshots, true);
+        if ($this->snapshot) {
+            $plugin->visitService->deleteAllSnapshots(!$this->queue);
+        }
+
+        if ($this->queue) {
+            foreach ($destinationLists as $destinationList) {
+                $plugin->visitService->createVisitJobs($destinationList, $this->snapshot);
             }
+            $this->stdout("Queued $tally." . PHP_EOL, Console::FG_GREEN);
+            return ExitCode::OK;
         }
 
-        return ExitCode::OK;
-    }
-
-    private function normalizeList(string|array $value, bool $defaultToAll = false): array|string
-    {
-        if (is_string($value)) {
-            $trimmed = trim($value);
-            if ($trimmed === '') {
-                return $defaultToAll ? '*' : [];
-            }
-            if ($trimmed === '*') {
-                return '*';
-            }
-            return array_values(array_filter(array_map('trim', explode(',', $trimmed)), static fn($v) => $v !== ''));
+        $failures = 0;
+        foreach ($destinationLists as $destinationList) {
+            $failures += $plugin->visitService->visit($destinationList, $this->snapshot, true);
         }
 
-        if (empty($value)) {
-            return $defaultToAll ? '*' : [];
-        }
+        $this->stdout("Visited $tally, $failures failed." . PHP_EOL, $failures ? Console::FG_RED : Console::FG_GREEN);
 
-        return $value;
+        return $failures ? ExitCode::UNSPECIFIED_ERROR : ExitCode::OK;
     }
 }

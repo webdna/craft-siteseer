@@ -34,14 +34,17 @@ class VisitService extends Component
     }
 
     // uk oh, we've written this for multi visits, but the queue is currently doing single visits
-    public function visit(DestinationList $destinationList, bool $takeSnapshots, bool $consoleOutput = false): void
+    /**
+     * @return int the number of URLs that did not answer 200
+     */
+    public function visit(DestinationList $destinationList, bool $takeSnapshots, bool $consoleOutput = false): int
     {
         $settings = Siteseer::getInstance()->getSettings();
         $site = Craft::$app->getSites()->getSiteById($destinationList->siteId);
         $destinations = $destinationList->destinations;
 
         if (!$site) {
-            return;
+            return 0;
         }
         $client = new Client([
             'base_uri' => UrlHelper::siteUrl('/',[], $settings->useHttps ? 'https' : null,$site->id),
@@ -49,6 +52,7 @@ class VisitService extends Component
         
         $total = count($destinations);
         $count = 1;
+        $failures = 0;
 
         $request = function($destinations) use ($client) {
             foreach ($destinations as $destination) {
@@ -58,7 +62,7 @@ class VisitService extends Component
 
         $pool = new Pool($client, $request($destinations), [
             'concurrency' => App::env('CONCURRENT_REQUESTS', 3),
-            'fulfilled' => function (Response $response, $index) use ($destinations, $total, &$count, $takeSnapshots, $consoleOutput) {
+            'fulfilled' => function (Response $response, $index) use ($destinations, $total, &$count, &$failures, $takeSnapshots, $consoleOutput) {
                 $code = $response->getStatusCode();
                 $url = $destinations[$index]->url;
                 $output = "%y[$count/$total] $url : ".($code == 200 ? "%g" : "%r")." $code%n";
@@ -73,30 +77,28 @@ class VisitService extends Component
                     }
                 } else {
                     Siteseer::getInstance()->errorService->saveErrorRecord($destinations[$index], $code);
+                    $failures++;
                 }
                 $count++;
             },
-            'rejected' => function ($exception, $index) use ($destinations, $total, &$count, $takeSnapshots, $consoleOutput) {
+            'rejected' => function ($exception, $index) use ($destinations, $total, &$count, &$failures, $consoleOutput) {
                 $code = 'UNKNOWN';
                 $url = $destinations[$index]->url;
-                $output = "%y[$count/$total] $url : ".($code == 200 ? "%g" : "%r")." $code%n";
                 try {
-                    //code...
-                    
-                    if ($exception->getResponse()) {
+                    if (method_exists($exception, 'getResponse') && $exception->getResponse()) {
                         $code = $exception->getResponse()->getStatusCode();
                     } else {
                         $code = 500;
                     }
-                    
-                    if ($consoleOutput && Craft::$app instanceof ConsoleApplication) {
-                        Console::output(Console::renderColoredString($output));
-                    }
-                    Siteseer::error($output);
                 } catch (\Throwable $th) {
-                    //throw $th;
                 }
+                $output = "%y[$count/$total] $url : %r $code%n";
+                if ($consoleOutput && Craft::$app instanceof ConsoleApplication) {
+                    Console::output(Console::renderColoredString($output));
+                }
+                Siteseer::error($output);
                 Siteseer::getInstance()->errorService->saveErrorRecord($destinations[$index], $code);
+                $failures++;
 
                 $count++;
             },
@@ -105,6 +107,7 @@ class VisitService extends Component
         $promise = $pool->promise();
         $promise->wait();
 
+        return $failures;
     }
 
     private function _saveSnapshot(Response $response, string $path, bool $consoleOutput = false): void 

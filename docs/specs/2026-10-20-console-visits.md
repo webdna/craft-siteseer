@@ -1,8 +1,8 @@
 ---
 spec: Siteseer — visits from the command line
 slug: console-visits
-status: draft
-version: 0.1
+status: built
+version: 0.2
 date: 2026-10-20
 author: Claude (with Sam Birch)
 client: webdna (Craft plugin)
@@ -12,7 +12,7 @@ related: [webdna/craft-siteseer#1]
 
 # Siteseer — visits from the command line
 
-> **Status:** draft - **Version:** 0.1
+> **Status:** built - **Version:** 0.2
 > Everything the Siteseer utility can be told to visit can be told to `./craft siteseer/visit`
 > instead, and the command either visits the pages there and then or queues the same batched
 > jobs the utility's "Run a scan" button does.
@@ -72,7 +72,7 @@ None. No settings, tables or migrations change.
   handles or ids, or `*`. Left out (or `*`), the choice is all of them. Given as empty
   (`--sections=`), it is none. A numeric value is an id; anything else is a handle.
 - **BR-3** An unknown handle or id is refused before anything is visited or queued: the command
-  names it and exits 2 (usage error). `--types` given on a site without Commerce is refused the
+  names it and exits 64 (`ExitCode::USAGE`). `--types` given on a site without Commerce is refused the
   same way, unless empty.
 - **BR-4** `--manual` takes comma-separated URIs; `--include-config=1` adds the config file's
   `manualUris`. Both are visited on every chosen site. Neither is included by default.
@@ -96,7 +96,7 @@ None. No settings, tables or migrations change.
 | `--queue` | New option. |
 | `--sites`, `--sections`, `--groups`, `--types` | Accept handles and `*` as well as ids. |
 | `--include-config`, `--snapshot`, `--manual` | Unchanged (`--includeconfig` still accepted). |
-| Exit code | 1 when a real-time visit failed; 2 for an unknown handle or id. |
+| Exit code | 1 when a real-time visit failed; 64 for an unknown handle or id. |
 | `VisitService::visit()` | Returns the number of failed URLs (was `void`). |
 | `ItineraryService::resolveIds()` | New: handles/ids/`*` to ids for one kind, or throws naming the unknown one. |
 | README, CHANGELOG | Command section rewritten; entry added. |
@@ -114,24 +114,36 @@ All in the craft5 sandbox, with the plugin mounted from `~/Projects/plugins/craf
 | TS-5 | `--queue` with TS-2's options | One job per site in the queue, "Queued N URLs on M sites"; exit 0; running the queue visits the same N URLs |
 | TS-6 | `--include-config=1 --sections= --groups= --types=` | The config's `manualUris` visited on each site |
 | TS-7 | Utility "Run a scan" with a manual URI typed in | Job queued and the URI visited (was: error on the row array) |
-| TN-1 | `--sections=nope` | "Unknown section: nope", exit 2, nothing visited or queued |
+| TN-1 | `--sections=nope` | "Unknown section: nope", exit 64, nothing visited or queued |
 | TN-2 | Everything empty (`--sections= --groups= --types=`) | "Nothing to visit", exit 0 |
 
 ## 8. Build order
 
 ### Tasks
 
-- [ ] **1.1 Itinerary fixes** — `src/services/ItineraryService.php`
+- [x] **1.1 Itinerary fixes** — `src/services/ItineraryService.php`
       Rules: BR-4, BR-9 · Verify: TS-6, TS-7
-- [ ] **1.2 Command: selection, queue, exit code** — `src/console/controllers/DefaultController.php`,
+      *Built 20 Oct 2026.* The per-site loop reset `$manualUris` (the parameter) instead of
+      `$manualUrls`, so no manual URI was ever visited; utility rows (`['url' => …]`, blanks
+      included) are now unwrapped and blanks skipped. TS-6 with a temporary `config/siteseer.php`
+      (both spellings, both sites); TS-7 by passing editable-table rows to `allTheUrls()` directly.
+- [x] **1.2 Command: selection, queue, exit code** — `src/console/controllers/DefaultController.php`,
       `src/services/ItineraryService.php`, `src/services/VisitService.php`, `src/Siteseer.php`
       Rules: BR-1–BR-8 · Verify: TS-1–TS-5, TN-1, TN-2
-- [ ] **1.3 Docs** — `README.md`, `CHANGELOG.md` · Verify: README examples run as written
+      *Built 20 Oct 2026.* Left out vs empty is read from `getPassedOptions()`. The usage exit is
+      Yii's `ExitCode::USAGE`, 64 (BR-3 said 2; amended). TS-1–TS-5, TN-1 (section, site, product
+      type), TN-2 all observed in craft5; TS-5 queued 8 URLs on 2 sites as two jobs, and after
+      `queue/run` the six 404s were in the error table and the two 200s were not. The sandbox's
+      entries all answer 404 (no templates), so the 200 path was proved with `--manual=/`.
+- [x] **1.3 Docs** — `README.md`, `CHANGELOG.md` · Verify: README examples run as written
+      *Built 20 Oct 2026.* All three examples run in craft5 (the second refuses `blog`, which
+      craft5 lacks, with 64 — as documented).
 
 ## Appendix B — build context
 
 - **Preconditions:** craft5 running (`ddev` from lowercase `~/projects/craft5`); the plugin
-  bind-mounted at `plugins/craft-siteseer` and installed.
+  installed from `plugins/craft-siteseer` (a git worktree of this repo on the feature branch,
+  because a bind mount needs a `ddev restart` the session hook refuses).
 - **Traps:** Yii splits a comma string into an array when the option's default is `[]`, so `*`
   arrives as `['*']`, and `--sections=` arrives as `['']`. The plugin has no test suite; craft5
   is the proof. Never commit in craft5.
