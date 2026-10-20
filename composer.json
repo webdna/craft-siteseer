@@ -3,13 +3,13 @@
   "description": "Visit all the pages",
   "type": "craft-plugin",
   "license": "proprietary",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "support": {
     "email": "info@webdna.co.uk"
   },
   "require": {
     "php": ">=8.2",
-    "craftcms/cms": "^4.0.0 || ^5.3.0"
+    "craftcms/cms": "^5.3.0"
   },
   "autoload": {
     "psr-4": {
